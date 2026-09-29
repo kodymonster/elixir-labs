@@ -8,6 +8,32 @@ document.addEventListener("DOMContentLoaded", () => {
     el.textContent = DISCORD_HANDLE;
   });
 
+  // Jiggle things into view as you scroll past them.
+  const revealTargets = document.querySelectorAll(
+    ".card, .step, .faq-list details, .listing-stats li, .hero-stats > div"
+  );
+  if (revealTargets.length && "IntersectionObserver" in window) {
+    revealTargets.forEach(el => el.classList.add("js-reveal"));
+
+    const revealObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          const el = entry.target;
+          if (entry.isIntersecting) {
+            el.classList.remove("in-view");
+            void el.offsetWidth; // restart the animation every time it re-enters view
+            el.classList.add("in-view");
+          } else {
+            el.classList.remove("in-view");
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+
+    revealTargets.forEach(el => revealObserver.observe(el));
+  }
+
   // Right-click an image to zoom in on the spot you clicked; right-click again to zoom back out.
   const resetZoom = (img) => img.classList.remove("img-zoomed");
   const setupRightClickZoom = (img) => {
