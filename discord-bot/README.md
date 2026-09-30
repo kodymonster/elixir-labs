@@ -1,6 +1,6 @@
-# Elixer Labs Discord Bot
+# Elixir Labs Discord Bot
 
-An AI-powered support bot for the Elixer Labs Discord server. It answers questions about the accounts currently for sale (pricing, trophies, warranty, delivery, how buying works) using Claude, grounded in `data/listings.json` so it never invents stats.
+An AI-powered support bot for the Elixir Labs Discord server. It answers questions about the accounts currently for sale (pricing, trophies, warranty, delivery, how buying works) using Claude, grounded in `data/listings.json` so it never invents stats.
 
 ## What it does
 
@@ -47,11 +47,11 @@ Your PC doesn't need to stay on if you deploy this to a small always-on host. Ra
 2. Go to https://railway.app, sign in, **New Project -> Deploy from GitHub repo**, pick the repo.
 3. If the bot lives in a subfolder, set the Railway service's **Root Directory** to `discord-bot`.
 4. Under the service's **Variables** tab, add `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `ANTHROPIC_API_KEY`, and `SUPPORT_CHANNEL_ID` (same values as your `.env`).
-5. Railway auto-detects Node and runs `npm start`. Deploy, then check the logs for `Elixer Labs bot logged in as ...`.
+5. Railway auto-detects Node and runs `npm start`. Deploy, then check the logs for `Elixir Labs bot logged in as ...`.
 6. Run `npm run deploy-commands` once from your own machine (with the same `.env`) to register `/listings` — this is a one-time setup step, not something that needs to run continuously.
 
 Other hosts that work the same way: Render (Background Worker), Fly.io, or any small VPS with Node.js installed and `pm2` or a systemd service to keep it running.
 
 ## Keeping listings in sync with the website
 
-`data/listings.json` is a separate copy of the account data shown on the Elixer Labs site (`index.html`). When you add, remove, or reprice a listing on the site, update the matching entry here too — the bot only knows what's in this file.
+`data/listings.json` is a separate copy of the account data shown on the Elixir Labs site (`index.html`). When you add, remove, or reprice a listing on the site, update the matching entry here too — the bot only knows what's in this file.

@@ -66,7 +66,7 @@ function listingsBlock() {
 }
 
 function buildSystemPrompt() {
-  return `You are the support assistant for Elixer Labs, a small storefront that sells pre-leveled Clash Royale accounts.
+  return `You are the support assistant for Elixir Labs, a small storefront that sells pre-leveled Clash Royale accounts.
 
 Your job: answer questions about the accounts currently for sale, pricing, warranty, delivery, and how buying works. Be friendly, concise, and match the site's tone (casual, no corporate fluff).
 
@@ -164,7 +164,7 @@ client.on("interactionCreate", async (interaction) => {
 
   if (interaction.commandName === "listings") {
     const embed = new EmbedBuilder()
-      .setTitle("Elixer Labs — Available Accounts")
+      .setTitle("Elixir Labs — Available Accounts")
       .setColor(0x8b5cf6);
 
     for (const l of listings) {
@@ -207,7 +207,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.once("clientReady", () => {
-  console.log(`Elixer Labs bot logged in as ${client.user.tag}`);
+  console.log(`Elixir Labs bot logged in as ${client.user.tag}`);
 });
 
 client.login(process.env.DISCORD_TOKEN);

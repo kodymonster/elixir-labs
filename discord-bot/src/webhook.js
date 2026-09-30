@@ -33,7 +33,7 @@ module.exports = { sendWebhookMessage };
 
 // Run directly (`node src/webhook.js`) to send a test message.
 if (require.main === module) {
-  sendWebhookMessage({ content: "Test message from Elixer Labs webhook." })
+  sendWebhookMessage({ content: "Test message from Elixir Labs webhook." })
     .then(() => console.log("Sent."))
     .catch((err) => {
       console.error(err.message);

@@ -1,7 +1,7 @@
 {
-  "name": "elixer-labs-bot",
+  "name": "Elixir-labs-bot",
   "version": "1.0.0",
-  "description": "AI-powered Discord support bot for Elixer Labs",
+  "description": "AI-powered Discord support bot for Elixir Labs",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
