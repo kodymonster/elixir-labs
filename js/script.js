@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Jiggle things into view as you scroll past them.
   const revealTargets = document.querySelectorAll(
-    ".card, .step, .faq-list details, .listing-stats li, .hero-stats > div"
+    ".card, .step, .faq-list details, .listing-stats li, .hero-stats > div, .review-card"
   );
   if (revealTargets.length && "IntersectionObserver" in window) {
     revealTargets.forEach(el => el.classList.add("js-reveal"));
