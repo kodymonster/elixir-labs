@@ -21,6 +21,22 @@ const listings = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "data", "listings.json"), "utf8"),
 );
 
+const DISCOUNT_WIN_CHANCE = 0.01; // 1%
+const DISCOUNT_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
+const cooldownsPath = path.join(__dirname, "..", "data", "discount-cooldowns.json");
+
+function loadCooldowns() {
+  try {
+    return JSON.parse(fs.readFileSync(cooldownsPath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveCooldowns(cooldowns) {
+  fs.writeFileSync(cooldownsPath, JSON.stringify(cooldowns, null, 2));
+}
+
 const anthropic = new Anthropic();
 
 const client = new Client({
@@ -145,20 +161,49 @@ client.on("messageCreate", async (message) => {
 
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== "listings") return;
 
-  const embed = new EmbedBuilder()
-    .setTitle("Elixer Labs — Available Accounts")
-    .setColor(0x8b5cf6);
+  if (interaction.commandName === "listings") {
+    const embed = new EmbedBuilder()
+      .setTitle("Elixer Labs — Available Accounts")
+      .setColor(0x8b5cf6);
 
-  for (const l of listings) {
-    embed.addFields({
-      name: `${l.title} — ${l.price}`,
-      value: `Trophies: ${l.trophies} | King Tower: ${l.kingTower} | Warranty: ${l.warranty} | Delivery: ${l.delivery}\n${l.notes}`,
-    });
+    for (const l of listings) {
+      embed.addFields({
+        name: `${l.title} — ${l.price}`,
+        value: `Trophies: ${l.trophies} | King Tower: ${l.kingTower} | Warranty: ${l.warranty} | Delivery: ${l.delivery}\n${l.notes}`,
+      });
+    }
+
+    await interaction.reply({ embeds: [embed] });
+    return;
   }
 
-  await interaction.reply({ embeds: [embed] });
+  if (interaction.commandName === "discount") {
+    const cooldowns = loadCooldowns();
+    const userId = interaction.user.id;
+    const lastTry = cooldowns[userId] ?? 0;
+    const elapsed = Date.now() - lastTry;
+
+    if (elapsed < DISCOUNT_COOLDOWN_MS) {
+      const minutesLeft = Math.ceil((DISCOUNT_COOLDOWN_MS - elapsed) / 60000);
+      await interaction.reply({
+        content: `You already tried recently — come back in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    cooldowns[userId] = Date.now();
+    saveCooldowns(cooldowns);
+
+    const won = Math.random() < DISCOUNT_WIN_CHANCE;
+    await interaction.reply(
+      won
+        ? "🎉 **25% OFF!** DM staff with a screenshot of this to redeem it on your next purchase."
+        : "oops, try again",
+    );
+    return;
+  }
 });
 
 client.once("clientReady", () => {
