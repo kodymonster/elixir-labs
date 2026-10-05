@@ -1,12 +1,16 @@
 // ---- Edit this with your real Discord info ----
 const DISCORD_HANDLE = "YourDiscordHandle"; // e.g. "elixerlabs" or "elixerlabs#1234"
 const DISCORD_INVITE_URL = "https://discord.gg/5DpXs8u8KZ"; // e.g. "https://discord.gg/yourinvite" — leave blank to just show the handle
+const CASHAPP_TAG = "$heehehaaa"; // your Cash App tag, shown on the FAQ payment answer
 // ------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".footer-contact strong").forEach(el => {
     el.textContent = DISCORD_HANDLE;
   });
+
+  const cashappTag = document.getElementById("cashapp-tag");
+  if (cashappTag) cashappTag.textContent = CASHAPP_TAG;
 
   // Jiggle things into view as you scroll past them.
   const revealTargets = document.querySelectorAll(

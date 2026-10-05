@@ -9,7 +9,7 @@ const {
 } = require("discord.js");
 const Anthropic = require("@anthropic-ai/sdk");
 
-const REQUIRED_ENV = ["DISCORD_TOKEN", "ANTHROPIC_API_KEY"];
+const REQUIRED_ENV = ["DISCORD_TOKEN", "CASHAPP_TAG", "ANTHROPIC_API_KEY", "SUPPORT_TICKET_CHANNEL_ID"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
     console.error(`Missing required environment variable: ${key}`);
@@ -20,6 +20,55 @@ for (const key of REQUIRED_ENV) {
 const listings = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "data", "listings.json"), "utf8"),
 );
+
+const CASHAPP_TAG = process.env.CASHAPP_TAG.replace(/^\$/, "");
+const SUPPORT_TICKET_CHANNEL_ID = process.env.SUPPORT_TICKET_CHANNEL_ID;
+
+function cashAppPayLink(priceStr) {
+  const amount = priceStr.replace(/[^0-9.]/g, "");
+  return `https://cash.app/$${CASHAPP_TAG}/${amount}`;
+}
+
+const anthropic = new Anthropic();
+const QUESTION_MODEL = "claude-opus-5";
+
+function listingsBlock() {
+  return listings
+    .map(
+      (l) =>
+        `- "${l.title}" — ${l.price} — Trophies: ${l.trophies}, King Tower: ${l.kingTower}, Warranty: ${l.warranty}, Delivery: ${l.delivery}. ${l.notes}`,
+    )
+    .join("\n");
+}
+
+function buildQuestionSystemPrompt() {
+  return `You are the support assistant for Elixir Labs, a small storefront that sells pre-leveled Clash Royale accounts.
+
+Answer the buyer's question about the accounts currently for sale, pricing, warranty, delivery, or how buying works. Be friendly, concise, and match the site's tone (casual, no corporate fluff). Keep it to a few sentences.
+
+CURRENT LISTINGS (this is the only inventory — do not invent accounts, stats, or prices that aren't listed here):
+${listingsBlock()}
+
+RULES:
+- Never invent stats, prices, or accounts not in the listings above. If asked about an account that isn't listed, say it's not currently available.
+- If asked how to buy or pay: tell them to run /buy and pick the account, which gives a Cash App payment link for the exact price.
+- If asked for human help, a bug, or anything you can't answer from the listings: tell them to run /support to open a ticket.
+- If asked whether it's safe: accounts include full login access, and buyers are walked through securing the account with a new email/password immediately after purchase.
+- Never make up a payment link or amount yourself, and never send credentials yourself.`;
+}
+
+async function answerQuestion(question) {
+  const response = await anthropic.messages.create({
+    model: QUESTION_MODEL,
+    max_tokens: 512,
+    system: buildQuestionSystemPrompt(),
+    output_config: { effort: "low" },
+    messages: [{ role: "user", content: question }],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  return textBlock?.text?.trim() || "Sorry, I couldn't come up with a reply to that.";
+}
 
 const DISCOUNT_WIN_CHANCE = 0.01; // 1%
 const DISCOUNT_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -37,8 +86,6 @@ function saveCooldowns(cooldowns) {
   fs.writeFileSync(cooldownsPath, JSON.stringify(cooldowns, null, 2));
 }
 
-const anthropic = new Anthropic();
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -49,78 +96,8 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-const MODEL = "claude-opus-5";
-const MAX_HISTORY_TURNS = 10; // user+assistant messages kept per channel
-const DISCORD_MESSAGE_LIMIT = 2000;
-
-// In-memory per-channel conversation history. Resets on bot restart.
-const conversations = new Map();
-
-function listingsBlock() {
-  return listings
-    .map(
-      (l) =>
-        `- "${l.title}" — ${l.price} — Trophies: ${l.trophies}, King Tower: ${l.kingTower}, Warranty: ${l.warranty}, Delivery: ${l.delivery}. ${l.notes}`,
-    )
-    .join("\n");
-}
-
-function buildSystemPrompt() {
-  return `You are the support assistant for Elixir Labs, a small storefront that sells pre-leveled Clash Royale accounts.
-
-Your job: answer questions about the accounts currently for sale, pricing, warranty, delivery, and how buying works. Be friendly, concise, and match the site's tone (casual, no corporate fluff).
-
-CURRENT LISTINGS (this is the only inventory — do not invent accounts, stats, or prices that aren't listed here):
-${listingsBlock()}
-
-HOW BUYING WORKS (tell users this when asked):
-1. They message here on Discord saying which account they want.
-2. A human confirms availability and sends secure payment details.
-3. After payment, login credentials and email access are sent right away.
-
-RULES:
-- Never invent stats, prices, or accounts not in the listings above. If someone asks about an account that isn't listed, say it's not currently available.
-- You cannot process payments or send account credentials yourself — always hand off to a human for that step by saying something like "let us know you'd like to buy this and someone will get you set up."
-- If asked whether it's safe: accounts include full login access, and buyers are walked through securing the account with a new email/password immediately after purchase.
-- If asked about payment methods: those are shared once the buyer confirms which account they want.
-- Keep replies short — a few sentences, not an essay — this is a Discord chat, not an email.`;
-}
-
-function trimHistory(history) {
-  const maxEntries = MAX_HISTORY_TURNS * 2;
-  if (history.length > maxEntries) {
-    history.splice(0, history.length - maxEntries);
-  }
-}
-
-async function getReply(channelId, userMessage) {
-  const history = conversations.get(channelId) ?? [];
-  history.push({ role: "user", content: userMessage });
-  trimHistory(history);
-
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: buildSystemPrompt(),
-    output_config: { effort: "low" },
-    messages: history,
-  });
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  const reply = textBlock?.text?.trim() || "Sorry, I couldn't come up with a reply to that.";
-
-  history.push({ role: "assistant", content: reply });
-  trimHistory(history);
-  conversations.set(channelId, history);
-
-  return reply;
-}
-
-async function sendChunked(channel, text) {
-  for (let i = 0; i < text.length; i += DISCORD_MESSAGE_LIMIT) {
-    await channel.send(text.slice(i, i + DISCORD_MESSAGE_LIMIT));
-  }
-}
+const GREETING_REPLY =
+  "Hey! Run `/listings` to see what's in stock, `/buy` for a Cash App payment link, `/question` to ask me anything about the accounts, or `/support` to open a ticket with staff.";
 
 function shouldRespond(message) {
   if (message.author.bot) return false;
@@ -142,21 +119,7 @@ client.on("messageCreate", async (message) => {
     .trim();
   if (!content) return;
 
-  await message.channel.sendTyping();
-
-  try {
-    const reply = await getReply(message.channel.id, content);
-    await sendChunked(message.channel, reply);
-  } catch (error) {
-    console.error("Error generating reply:", error);
-    if (error instanceof Anthropic.RateLimitError) {
-      await message.reply("I'm getting a lot of questions right now — try again in a moment.");
-    } else if (error instanceof Anthropic.AuthenticationError) {
-      await message.reply("The bot isn't configured correctly (invalid API key). Let the server owner know.");
-    } else {
-      await message.reply("Something went wrong answering that — try again in a bit.");
-    }
-  }
+  await message.reply(GREETING_REPLY);
 });
 
 client.on("interactionCreate", async (interaction) => {
@@ -175,6 +138,60 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     await interaction.reply({ embeds: [embed] });
+    return;
+  }
+
+  if (interaction.commandName === "buy") {
+    const id = Number(interaction.options.getString("account"));
+    const listing = listings.find((l) => l.id === id);
+
+    if (!listing) {
+      await interaction.reply({
+        content: "Couldn't find that account — it may have sold already. Run /listings to see what's in stock.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Pay for ${listing.title}`)
+      .setColor(0x00d632)
+      .setDescription(
+        `**Price:** ${listing.price}\n\n` +
+          `**Pay here:** ${cashAppPayLink(listing.price)}\n` +
+          `Cash App tag: $${CASHAPP_TAG}\n\n` +
+          `Once you've sent payment, DM a screenshot here and we'll get your login credentials and email access sent over right away.`,
+      );
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    return;
+  }
+
+  if (interaction.commandName === "support") {
+    await interaction.reply({
+      content: `Need help? Open a ticket in <#${SUPPORT_TICKET_CHANNEL_ID}> and staff will get to you.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "question") {
+    const question = interaction.options.getString("question");
+    await interaction.deferReply();
+
+    try {
+      const answer = await answerQuestion(question);
+      await interaction.editReply(answer);
+    } catch (error) {
+      console.error("Error answering question:", error);
+      if (error instanceof Anthropic.RateLimitError) {
+        await interaction.editReply("I'm getting a lot of questions right now — try again in a moment.");
+      } else {
+        await interaction.editReply(
+          "Couldn't answer that right now — run /support to open a ticket with staff instead.",
+        );
+      }
+    }
     return;
   }
 
