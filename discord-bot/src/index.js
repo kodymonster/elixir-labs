@@ -122,6 +122,27 @@ client.on("messageCreate", async (message) => {
   await message.reply(GREETING_REPLY);
 });
 
+client.on("channelCreate", async (channel) => {
+  if (!channel.isTextBased?.() || channel.isDMBased?.()) return;
+  if (!/^ticket-/i.test(channel.name)) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("While you wait for staff...")
+    .setColor(0x8b5cf6)
+    .setDescription(
+      "Here's what I can help with in the meantime:\n\n" +
+        "`/listings` — see every account currently for sale\n" +
+        "`/buy` — get a Cash App payment link for an account\n" +
+        "`/question` — ask me anything about the accounts",
+    );
+
+  try {
+    await channel.send({ embeds: [embed] });
+  } catch (error) {
+    console.error(`Couldn't post ticket welcome message in #${channel.name}:`, error);
+  }
+});
+
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -155,7 +176,7 @@ client.on("interactionCreate", async (interaction) => {
 
     const embed = new EmbedBuilder()
       .setTitle(`Pay for ${listing.title}`)
-      .setColor(0x00d632)
+      .setColor(0x8b5cf6)
       .setDescription(
         `**Price:** ${listing.price}\n\n` +
           `**Pay here:** ${cashAppPayLink(listing.price)}\n` +
