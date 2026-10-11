@@ -1,12 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg: #0b0916;
-  --bg-alt: #120e21;
-  --surface: #181430;
-  --surface-2: #211a42;
-  --border: #332b5e;
-  --border-soft: rgba(139, 92, 246, 0.25);
+  --bg: #1a0b2e;
+  --bg-alt: #220e3d;
+  --surface: #2b124c;
+  --surface-2: #381864;
+  --border: #4d2188;
+  --border-soft: rgba(192, 132, 252, 0.28);
   --text: #d8b4fe;
   --text-dim: #c084fc;
   --text-faint: #a855f7;
@@ -18,9 +18,9 @@
   --green-light: #6ee7b7;
   --radius: 18px;
   --radius-sm: 10px;
-  --shadow-md: 0 12px 32px rgba(5, 3, 16, 0.4);
-  --shadow-lg: 0 24px 60px rgba(5, 3, 16, 0.55);
-  --glow-purple: 0 0 0 1px rgba(139, 92, 246, 0.35), 0 16px 40px rgba(139, 92, 246, 0.22);
+  --shadow-md: 0 12px 32px rgba(10, 3, 20, 0.5);
+  --shadow-lg: 0 24px 60px rgba(10, 3, 20, 0.65);
+  --glow-purple: 0 0 0 1px rgba(192, 132, 252, 0.4), 0 16px 40px rgba(147, 51, 234, 0.3);
   color-scheme: dark;
 }
 
@@ -55,8 +55,10 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 12% 8%, rgba(139, 92, 246, 0.14), transparent 42%),
-    radial-gradient(circle at 88% 0%, rgba(240, 85, 156, 0.10), transparent 40%),
+    radial-gradient(circle at 12% 8%, rgba(192, 132, 252, 0.28), transparent 45%),
+    radial-gradient(circle at 88% 0%, rgba(232, 121, 249, 0.22), transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.18), transparent 60%),
+    radial-gradient(circle at 20% 80%, rgba(147, 51, 234, 0.25), transparent 50%),
     var(--bg);
   color: var(--text);
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -97,7 +99,7 @@ h1, h2, h3 {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(11, 9, 22, 0.78);
+  background: rgba(26, 11, 46, 0.85);
   backdrop-filter: blur(14px) saturate(140%);
   border-bottom: 1px solid var(--border-soft);
 }
@@ -416,13 +418,13 @@ h1, h2, h3 {
   aspect-ratio: 16 / 10;
   overflow: hidden;
   border-radius: var(--radius) var(--radius) 0 0;
-  background: #000;
+  background: #150826;
 }
 .card-media::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 60%, rgba(11, 9, 22, 0.55));
+  background: linear-gradient(180deg, transparent 60%, rgba(26, 11, 46, 0.65));
   pointer-events: none;
 }
 
@@ -441,7 +443,7 @@ h1, h2, h3 {
   bottom: 10px;
   right: 10px;
   z-index: 1;
-  background: rgba(11, 9, 22, 0.7);
+  background: rgba(26, 11, 46, 0.85);
   color: var(--text);
   font-size: 0.72rem;
   font-weight: 700;
@@ -628,7 +630,7 @@ details p { color: var(--text-dim); margin: 14px 0 0; font-size: 0.94rem; }
 .gallery-main {
   border-radius: var(--radius);
   overflow: hidden;
-  background: #000;
+  background: #150826;
   height: 640px;
   border: 1px solid var(--border-soft);
   box-shadow: var(--shadow-lg);
