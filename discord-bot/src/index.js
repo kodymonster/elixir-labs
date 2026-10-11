@@ -1,6 +1,6 @@
-require("dotenv").config();
-const fs = require("fs");
 const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+const fs = require("fs");
 const {
   Client,
   GatewayIntentBits,
@@ -10,9 +10,14 @@ const {
   ButtonBuilder,
   ButtonStyle,
 } = require("discord.js");
-const Anthropic = require("@anthropic-ai/sdk");
+let Anthropic = null;
+try {
+  Anthropic = require("@anthropic-ai/sdk");
+} catch {
+  // Optional dependency
+}
 
-const REQUIRED_ENV = ["DISCORD_TOKEN", "CASHAPP_TAG", "ANTHROPIC_API_KEY", "SUPPORT_TICKET_CHANNEL_ID"];
+const REQUIRED_ENV = ["DISCORD_TOKEN", "CASHAPP_TAG", "SUPPORT_TICKET_CHANNEL_ID"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
     console.error(`Missing required environment variable: ${key}`);
@@ -32,45 +37,166 @@ function cashAppPayLink(priceStr) {
   return `https://cash.app/$${CASHAPP_TAG}/${amount}`;
 }
 
-const anthropic = new Anthropic();
-const QUESTION_MODEL = "claude-opus-5";
-
-function listingsBlock() {
-  return listings
-    .map(
-      (l) =>
-        `- "${l.title}" — ${l.price} — Trophies: ${l.trophies}, King Tower: ${l.kingTower}, Warranty: ${l.warranty}, Delivery: ${l.delivery}. ${l.notes}`,
-    )
-    .join("\n");
+let anthropicClient = null;
+if (Anthropic && process.env.ANTHROPIC_API_KEY) {
+  try {
+    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  } catch (err) {
+    console.warn("Anthropic SDK initialization warning:", err.message);
+  }
 }
 
-function buildQuestionSystemPrompt() {
-  return `You are the support assistant for Elixir Labs, a small storefront that sells pre-leveled Clash Royale accounts.
+function answerQuestionLocally(query) {
+  const q = (query || "").toLowerCase().trim();
 
-Answer the buyer's question about the accounts currently for sale, pricing, warranty, delivery, or how buying works. Be friendly, concise, and match the site's tone (casual, no corporate fluff). Keep it to a few sentences.
+  // 1. Safety, Bans, Legitimacy & Security
+  if (/\b(safe|safety|legit|legitimate|scam|scammed|ban|banned|trust|trusted|stolen|hacked|recover|recovered|secure|security|real)\b/i.test(q)) {
+    return {
+      title: "🛡️ Safety & Account Security",
+      description:
+        "**Buying from Elixir Labs is 100% safe and secure.**\n\n" +
+        "• **Full Ownership:** You receive full Supercell ID & email credentials.\n" +
+        "• **Handoff Guide:** Staff walks you through switching the email & securing the account to your own details immediately.\n" +
+        "• **5-Day Free Warranty:** Every account comes with a 5-day replacement/support warranty for total peace of mind.\n\n" +
+        "Run `/listings` to browse stock, or `/support` to chat with staff."
+    };
+  }
 
-CURRENT LISTINGS (this is the only inventory — do not invent accounts, stats, or prices that aren't listed here):
-${listingsBlock()}
+  // 2. Payments & Cash App
+  if (/\b(pay|payment|cashapp|cash app|paypal|crypto|card|credit|apple pay|method|methods|how to pay|how do i pay|how to buy|how do i buy|buy|purchase|checkout|cost)\b/i.test(q)) {
+    return {
+      title: "💳 Payment & How to Buy",
+      description:
+        `We accept **Cash App only** ($${CASHAPP_TAG}).\n\n` +
+        "**How to purchase:**\n" +
+        "1. Run `/buy` and pick the account you want.\n" +
+        "2. Click the payment link for the exact amount.\n" +
+        "3. Send a screenshot of your payment in your ticket or DM.\n" +
+        "4. Staff delivers your login details and email access immediately!\n\n" +
+        `Ready to buy? Run \`/buy\` or open a ticket in <#${SUPPORT_TICKET_CHANNEL_ID}>.`
+    };
+  }
 
-RULES:
-- Never invent stats, prices, or accounts not in the listings above. If asked about an account that isn't listed, say it's not currently available.
-- If asked how to buy or pay: tell them to run /buy and pick the account, which gives a Cash App payment link for the exact price.
-- If asked for human help, a bug, or anything you can't answer from the listings: tell them to run /support to open a ticket.
-- If asked whether it's safe: accounts include full login access, and buyers are walked through securing the account with a new email/password immediately after purchase.
-- Never make up a payment link or amount yourself, and never send credentials yourself.`;
-}
+  // 3. Delivery & Speed
+  if (/\b(delivery|deliver|how long|speed|time|instant|wait|waiting|when do i get|handoff)\b/i.test(q)) {
+    return {
+      title: "⚡ Delivery Time & Process",
+      description:
+        "**Delivery is instant upon payment verification!**\n\n" +
+        "As soon as you send your Cash App payment confirmation in your support ticket, staff delivers the login email, password, and recovery instructions right away."
+    };
+  }
 
-async function answerQuestion(question) {
-  const response = await anthropic.messages.create({
-    model: QUESTION_MODEL,
-    max_tokens: 512,
-    system: buildQuestionSystemPrompt(),
-    output_config: { effort: "low" },
-    messages: [{ role: "user", content: question }],
+  // 4. Warranty, Refunds & Guarantees
+  if (/\b(warranty|guarantee|refund|money back|locked|issue|problem|broken|help if)\b/i.test(q)) {
+    return {
+      title: "🔒 5-Day Free Warranty",
+      description:
+        "**Every account includes a 5-day free warranty.**\n\n" +
+        "If you ever encounter an account or login issue within 5 days of purchase, our staff will troubleshoot or provide a replacement immediately.\n\n" +
+        `Need help with an account? Open a ticket in <#${SUPPORT_TICKET_CHANNEL_ID}>.`
+    };
+  }
+
+  // 5. Discounts & Promo Codes
+  if (/\b(discount|code|promo|deal|coupon|cheap|cheaper|sale|percent|luck|roll)\b/i.test(q)) {
+    return {
+      title: "🎁 Discounts & Deals",
+      description:
+        "• **Roll the dice:** Run `/discount` for a 1% chance every 2 hours to win **25% off** your next purchase!\n" +
+        "• Check our `#deals` channel for active promotions and sales.\n" +
+        "• Run `/listings` to see all current account prices."
+    };
+  }
+
+  // 6. Custom Requests / Specific Cards / Trophies
+  if (/\b(custom|request|specific|order|looking for|can you get|future|upcoming|deck|champion|monk|little prince)\b/i.test(q)) {
+    return {
+      title: "🎯 Custom Accounts & Requests",
+      description:
+        "Looking for specific cards, evolutions, heroes, or trophy brackets?\n\n" +
+        `Open a ticket in <#${SUPPORT_TICKET_CHANNEL_ID}> and tell us what you're looking for. We restock regularly and can source custom accounts!`
+    };
+  }
+
+  // 7. Human Support & Tickets
+  if (/\b(support|ticket|staff|human|talk to|speak to|admin|owner|mod|help|contact)\b/i.test(q)) {
+    return {
+      title: "🎫 Support & Staff Help",
+      description:
+        `Need to speak with human staff? Open a ticket in <#${SUPPORT_TICKET_CHANNEL_ID}> and our team will assist you shortly!`
+    };
+  }
+
+  // 8. Lowest / Cheapest / Budget Accounts
+  if (/\b(cheap|cheapest|budget|lowest|least|under|affordable)\b/i.test(q)) {
+    const sorted = [...listings].sort((a, b) => {
+      const pa = parseFloat(a.price.replace(/[^0-9.]/g, "")) || 0;
+      const pb = parseFloat(b.price.replace(/[^0-9.]/g, "")) || 0;
+      return pa - pb;
+    });
+    const cheapest = sorted[0];
+    return {
+      title: `🏷️ Lowest Priced Account: ${cheapest.title} (${cheapest.price})`,
+      description:
+        `**Price:** ${cheapest.price}\n` +
+        `**Trophies:** ${cheapest.trophies} | **King Tower:** ${cheapest.kingTower}\n` +
+        `**Warranty:** ${cheapest.warranty} | **Delivery:** ${cheapest.delivery}\n` +
+        `**Details:** ${cheapest.notes}\n\n` +
+        `Run \`/buy\` to get this account, or \`/listings\` to see all stock.`
+    };
+  }
+
+  // 9. Best / Maxed / Highest Trophy Accounts
+  if (/\b(best|max|maxed|highest|most|elite|expensive|top|high)\b/i.test(q)) {
+    const sorted = [...listings].sort((a, b) => {
+      const pa = parseFloat(a.price.replace(/[^0-9.]/g, "")) || 0;
+      const pb = parseFloat(b.price.replace(/[^0-9.]/g, "")) || 0;
+      return pb - pa;
+    });
+    const top = sorted[0];
+    return {
+      title: `👑 Top Tier Account: ${top.title} (${top.price})`,
+      description:
+        `**Price:** ${top.price}\n` +
+        `**Trophies:** ${top.trophies} | **King Tower:** ${top.kingTower}\n` +
+        `**Warranty:** ${top.warranty} | **Delivery:** ${top.delivery}\n` +
+        `**Details:** ${top.notes}\n\n` +
+        `Run \`/buy\` to purchase this account, or \`/listings\` to see all accounts.`
+    };
+  }
+
+  // 10. Specific Account Lookup by ID or keyword (e.g. "account 2", "account 4", "kt16", "kt12")
+  const matchedAccounts = listings.filter((l) => {
+    if (q.includes(`account ${l.id}`) || q.includes(`acc ${l.id}`) || q.includes(`#${l.id}`)) return true;
+    if (q.includes(l.kingTower.toLowerCase())) return true;
+    if (q.includes(l.title.toLowerCase())) return true;
+    return false;
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock?.text?.trim() || "Sorry, I couldn't come up with a reply to that.";
+  if (matchedAccounts.length > 0) {
+    const fields = matchedAccounts.slice(0, 3).map((l) => ({
+      name: `${l.title} — ${l.price}`,
+      value: `**Trophies:** ${l.trophies} | **Tower:** ${l.kingTower}\n${l.notes}`,
+    }));
+    return {
+      title: `🔍 Accounts Matching Your Query (${matchedAccounts.length} found)`,
+      description: "Here are the closest matching accounts in stock:\n\nRun `/buy` to purchase any account.",
+      fields,
+    };
+  }
+
+  // 11. General Fallback
+  return {
+    title: "💬 Elixir Labs Support & Information",
+    description:
+      "Here is quick info about Elixir Labs:\n\n" +
+      "• **Browse Accounts:** Run `/listings` to see all accounts currently for sale.\n" +
+      "• **How to Buy:** Run `/buy` to select an account and get a Cash App payment link.\n" +
+      "• **Security:** 100% full email/Supercell ID access transferred to you + **5-day warranty**.\n" +
+      `• **Staff Help:** Need something custom or have a question? Open a ticket in <#${SUPPORT_TICKET_CHANNEL_ID}>.\n\n` +
+      "_Tip: Ask me about safety, payment methods, delivery speed, warranty, or specific accounts!_"
+  };
 }
 
 const DISCOUNT_WIN_CHANCE = 0.01; // 1%
@@ -112,7 +238,7 @@ const client = new Client({
 });
 
 const GREETING_REPLY =
-  "Hey! Run `/listings` to see what's in stock, `/buy` for a Cash App payment link, `/question` to ask me anything about the accounts, or `/support` to open a ticket with staff.";
+  "Hey! Run `/listings` to see what's in stock, `/buy` for a Cash App payment link, `/question` to ask me anything about accounts, pricing, or safety, `/faq` for quick answers, or `/support` to open a ticket with staff.";
 
 function shouldRespond(message) {
   if (message.author.bot) return false;
@@ -148,7 +274,8 @@ client.on("channelCreate", async (channel) => {
       "Here's what I can help with in the meantime:\n\n" +
         "`/listings` — see every account currently for sale\n" +
         "`/buy` — get a Cash App payment link for an account\n" +
-        "`/question` — ask me anything about the accounts",
+        "`/question` — ask me anything about accounts, pricing, safety, or delivery\n" +
+        "`/faq` — frequently asked questions",
     );
 
   try {
@@ -257,23 +384,55 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
+  if (interaction.commandName === "faq") {
+    const embed = new EmbedBuilder()
+      .setTitle("Elixir Labs — Frequently Asked Questions")
+      .setColor(0x8b5cf6)
+      .addFields(
+        {
+          name: "🛡️ Is it safe to buy an account?",
+          value: "Yes! You receive 100% full email and Supercell ID access. We guide you through securing the account with your own email and password immediately upon purchase, backed by our **5-Day Free Warranty**.",
+        },
+        {
+          name: "💳 What payment methods do you accept?",
+          value: `We accept **Cash App only** ($${CASHAPP_TAG}). Run \`/buy\` to get an instant payment link for the exact listing amount.`,
+        },
+        {
+          name: "⚡ How fast is delivery?",
+          value: "Delivery is instant once your Cash App payment confirmation is sent in your support ticket or DM.",
+        },
+        {
+          name: "🎯 Can I request specific cards or trophies?",
+          value: `Yes! Open a ticket in <#${SUPPORT_TICKET_CHANNEL_ID}> and staff will help you find or order the exact account you need.`,
+        },
+        {
+          name: "🎁 Do you have discounts?",
+          value: "Try `/discount` for a 1% chance every 2 hours to win **25% off** your next purchase! Also check `#deals` for current promos.",
+        },
+      )
+      .setFooter({ text: "Run /listings to browse accounts, /buy to purchase, or /support for staff." });
+
+    await interaction.reply({ embeds: [embed] });
+    return;
+  }
+
   if (interaction.commandName === "question") {
     const question = interaction.options.getString("question");
-    await interaction.deferReply();
+    const localAnswer = answerQuestionLocally(question);
 
-    try {
-      const answer = await answerQuestion(question);
-      await interaction.editReply(answer);
-    } catch (error) {
-      console.error("Error answering question:", error);
-      if (error instanceof Anthropic.RateLimitError) {
-        await interaction.editReply("I'm getting a lot of questions right now — try again in a moment.");
-      } else {
-        await interaction.editReply(
-          "Couldn't answer that right now — run /support to open a ticket with staff instead.",
-        );
-      }
+    const embed = new EmbedBuilder()
+      .setColor(0x8b5cf6)
+      .setTitle(localAnswer.title)
+      .setDescription(localAnswer.description);
+
+    if (localAnswer.fields && localAnswer.fields.length > 0) {
+      embed.addFields(localAnswer.fields);
     }
+
+    const shortQ = question.length > 50 ? question.slice(0, 47) + "..." : question;
+    embed.setFooter({ text: `Question: "${shortQ}" • Elixir Labs Support` });
+
+    await interaction.reply({ embeds: [embed] });
     return;
   }
 

@@ -1,6 +1,6 @@
-require("dotenv").config();
-const fs = require("fs");
 const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+const fs = require("fs");
 const { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 
 const listings = JSON.parse(
@@ -41,6 +41,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName("discount")
     .setDescription("Try your luck for 25% off (1% chance, one try per 2 hours)"),
+  new SlashCommandBuilder()
+    .setName("faq")
+    .setDescription("View frequently asked questions about buying, safety, and delivery"),
   new SlashCommandBuilder()
     .setName("setup-verify")
     .setDescription("Post the verify button in this channel (staff only)")
