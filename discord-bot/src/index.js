@@ -6,6 +6,9 @@ const {
   GatewayIntentBits,
   Partials,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } = require("discord.js");
 const Anthropic = require("@anthropic-ai/sdk");
 
@@ -86,6 +89,18 @@ function saveCooldowns(cooldowns) {
   fs.writeFileSync(cooldownsPath, JSON.stringify(cooldowns, null, 2));
 }
 
+const VERIFIED_ROLE_NAME = "Verified";
+const VERIFY_BUTTON_ID = "verify_click";
+
+async function ensureVerifiedRole(guild) {
+  const existing = guild.roles.cache.find((r) => r.name === VERIFIED_ROLE_NAME);
+  if (existing) return existing;
+  return guild.roles.create({
+    name: VERIFIED_ROLE_NAME,
+    reason: "Verification gate role",
+  });
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -144,7 +159,53 @@ client.on("channelCreate", async (channel) => {
 });
 
 client.on("interactionCreate", async (interaction) => {
+  if (interaction.isButton()) {
+    if (interaction.customId !== VERIFY_BUTTON_ID) return;
+
+    const role = await ensureVerifiedRole(interaction.guild);
+
+    if (interaction.member.roles.cache.has(role.id)) {
+      await interaction.reply({ content: "You're already verified!", ephemeral: true });
+      return;
+    }
+
+    try {
+      await interaction.member.roles.add(role);
+      await interaction.reply({
+        content: "You're verified! Welcome to Elixir Labs — check out the channels on the left.",
+        ephemeral: true,
+      });
+    } catch (error) {
+      console.error("Error assigning Verified role:", error);
+      await interaction.reply({
+        content: "Couldn't verify you right now — let staff know in the support channel.",
+        ephemeral: true,
+      });
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "setup-verify") {
+    const role = await ensureVerifiedRole(interaction.guild);
+
+    const embed = new EmbedBuilder()
+      .setTitle("Verify to access the server")
+      .setColor(0x8b5cf6)
+      .setDescription("Click the button below to verify you're human and unlock the rest of Elixir Labs.");
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(VERIFY_BUTTON_ID).setLabel("Verify").setStyle(ButtonStyle.Success),
+    );
+
+    await interaction.channel.send({ embeds: [embed], components: [row] });
+    await interaction.reply({
+      content: `Verify panel posted. Role: ${role}`,
+      ephemeral: true,
+    });
+    return;
+  }
 
   if (interaction.commandName === "listings") {
     const embed = new EmbedBuilder()

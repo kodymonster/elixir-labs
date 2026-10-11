@@ -1,7 +1,7 @@
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
-const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+const { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 
 const listings = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "data", "listings.json"), "utf8"),
@@ -41,6 +41,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName("discount")
     .setDescription("Try your luck for 25% off (1% chance, one try per 2 hours)"),
+  new SlashCommandBuilder()
+    .setName("setup-verify")
+    .setDescription("Post the verify button in this channel (staff only)")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 ].map((c) => c.toJSON());
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
