@@ -31,6 +31,7 @@ const listings = JSON.parse(
 
 const CASHAPP_TAG = process.env.CASHAPP_TAG.replace(/^\$/, "");
 const SUPPORT_TICKET_CHANNEL_ID = process.env.SUPPORT_TICKET_CHANNEL_ID;
+const WEBSITE_URL = "https://elixirlabs.store";
 
 function cashAppPayLink(priceStr) {
   const amount = priceStr.replace(/[^0-9.]/g, "");
@@ -48,6 +49,19 @@ if (Anthropic && process.env.ANTHROPIC_API_KEY) {
 
 function answerQuestionLocally(query) {
   const q = (query || "").toLowerCase().trim();
+
+  // 0. Website & Storefront query
+  if (/\b(website|site|store|storefront|link|url|domain|browse online|webpage)\b/i.test(q)) {
+    return {
+      title: "🌐 Elixir Labs Official Website",
+      description:
+        "Check out our full catalog, high-resolution account galleries, and buyer reviews online:\n\n" +
+        `👉 **[elixirlabs.store](${WEBSITE_URL})**\n\n` +
+        "• High-resolution photo galleries for each account\n" +
+        "• Instant Cash App purchase links\n" +
+        "• 5-day warranty & instant credential handoff"
+    };
+  }
 
   // 1. Safety, Bans, Legitimacy & Security
   if (/\b(safe|safety|legit|legitimate|scam|scammed|ban|banned|trust|trusted|stolen|hacked|recover|recovered|secure|security|real)\b/i.test(q)) {
@@ -334,10 +348,61 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
+  if (interaction.commandName === "website") {
+    const embed = new EmbedBuilder()
+      .setTitle("🌐 Elixir Labs Official Storefront")
+      .setColor(0x8b5cf6)
+      .setDescription(
+        "Browse our full catalog of Clash Royale accounts, high-resolution screenshots, card inventories, and buyer reviews live on our website!\n\n" +
+          `👉 **[elixirlabs.store](${WEBSITE_URL})**`,
+      );
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel("Visit Website")
+        .setStyle(ButtonStyle.Link)
+        .setURL(WEBSITE_URL),
+    );
+
+    await interaction.reply({ embeds: [embed], components: [row] });
+    return;
+  }
+
+  if (interaction.commandName === "setup-website") {
+    const embed = new EmbedBuilder()
+      .setTitle("🌐 Elixir Labs Official Storefront")
+      .setColor(0x8b5cf6)
+      .setDescription(
+        "Welcome to the official **Elixir Labs** storefront!\n\n" +
+          "Visit our website to browse verified Clash Royale accounts with full screenshot galleries, maxed card details, and live pricing.\n\n" +
+          `🔗 **Website:** ${WEBSITE_URL}\n\n` +
+          "• Full photo galleries for every account\n" +
+          "• Instant Cash App purchase links\n" +
+          "• 5-day warranty & instant credential handoff",
+      );
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel("Visit Storefront")
+        .setStyle(ButtonStyle.Link)
+        .setURL(WEBSITE_URL),
+    );
+
+    await interaction.channel.send({ embeds: [embed], components: [row] });
+    await interaction.reply({
+      content: "Website link panel posted successfully!",
+      ephemeral: true,
+    });
+    return;
+  }
+
   if (interaction.commandName === "listings") {
     const embed = new EmbedBuilder()
       .setTitle("Elixir Labs — Available Accounts")
-      .setColor(0x8b5cf6);
+      .setColor(0x8b5cf6)
+      .setDescription(
+        `Browse full screenshots & collection details at **[elixirlabs.store](${WEBSITE_URL})**\nRun \`/buy\` to get an instant payment link for any account.`,
+      );
 
     for (const l of listings) {
       embed.addFields({
@@ -346,7 +411,14 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    await interaction.reply({ embeds: [embed] });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel("View on Website")
+        .setStyle(ButtonStyle.Link)
+        .setURL(WEBSITE_URL),
+    );
+
+    await interaction.reply({ embeds: [embed], components: [row] });
     return;
   }
 
@@ -464,8 +536,46 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-client.once("clientReady", () => {
+client.once("clientReady", async () => {
   console.log(`Elixir Labs bot logged in as ${client.user.tag}`);
+
+  try {
+    const guild = client.guilds.cache.get("1554283050349629590") || client.guilds.cache.first();
+    if (guild) {
+      const websiteChannel = guild.channels.cache.find(
+        (c) => c.isTextBased?.() && c.name.toLowerCase() === "website",
+      );
+      if (websiteChannel) {
+        const messages = await websiteChannel.messages.fetch({ limit: 10 }).catch(() => null);
+        const alreadyPosted = messages && messages.some((m) => m.author.id === client.user.id);
+        if (!alreadyPosted) {
+          const embed = new EmbedBuilder()
+            .setTitle("🌐 Elixir Labs Official Storefront")
+            .setColor(0x8b5cf6)
+            .setDescription(
+              "Welcome to the official **Elixir Labs** storefront!\n\n" +
+                "Visit our website to browse verified Clash Royale accounts with full screenshot galleries, maxed card details, and live pricing.\n\n" +
+                `🔗 **Website:** ${WEBSITE_URL}\n\n` +
+                "• Full photo galleries for every account\n" +
+                "• Instant Cash App purchase links\n" +
+                "• 5-day warranty & instant credential handoff",
+            );
+
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setLabel("Visit Storefront")
+              .setStyle(ButtonStyle.Link)
+              .setURL(WEBSITE_URL),
+          );
+
+          await websiteChannel.send({ embeds: [embed], components: [row] });
+          console.log(`Auto-posted website link in #${websiteChannel.name}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Could not check/auto-post #website channel:", err.message);
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);

@@ -57,6 +57,8 @@ Key site behaviors:
 | `/support` | Replies ephemeral, pointing the user at the `#support-ticket` channel (uses `SUPPORT_TICKET_CHANNEL_ID` env var). |
 | `/question` | Smart local query & inventory search engine answering questions about safety, Cash App, delivery, 5-day warranty, and inventory lookups (cheapest account, KT16, evolutions, etc.). Instant, zero API cost, no Anthropic billing required. |
 | `/faq` | Posts an embed of frequently asked questions covering safety, payment methods, delivery speed, and warranty. |
+| `/website` | Posts a storefront embed with a direct link and button to `https://elixirlabs.store`. |
+| `/setup-website` | **Staff only** (`ManageGuild` permission required). Posts the official website link panel in the current channel (used for `#website`). |
 | `/discount` | 1% chance of a 25% off code, 2-hour cooldown per user. State stored in `discount-cooldowns.json`. |
 | `/setup-verify` | **Staff only** (`ManageGuild` permission required). Posts a "Verify" button panel in the current channel. |
 

@@ -45,8 +45,15 @@ const commands = [
     .setName("faq")
     .setDescription("View frequently asked questions about buying, safety, and delivery"),
   new SlashCommandBuilder()
+    .setName("website")
+    .setDescription("Get the link to the official Elixir Labs website"),
+  new SlashCommandBuilder()
     .setName("setup-verify")
     .setDescription("Post the verify button in this channel (staff only)")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName("setup-website")
+    .setDescription("Post the official website link panel in this channel (staff only)")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 ].map((c) => c.toJSON());
 
