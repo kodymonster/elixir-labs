@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const cashappTag = document.getElementById("cashapp-tag");
   if (cashappTag) cashappTag.textContent = CASHAPP_TAG;
 
-  // Jiggle things into view as you scroll past them.
+  // Smoothly reveal elements as you scroll into view
   const revealTargets = document.querySelectorAll(
     ".card, .step, .faq-list details, .listing-stats li, .hero-stats > div, .review-card"
   );
@@ -20,19 +20,15 @@ document.addEventListener("DOMContentLoaded", () => {
     revealTargets.forEach(el => el.classList.add("js-reveal"));
 
     const revealObserver = new IntersectionObserver(
-      (entries) => {
+      (entries, observer) => {
         entries.forEach(entry => {
-          const el = entry.target;
           if (entry.isIntersecting) {
-            el.classList.remove("in-view");
-            void el.offsetWidth; // restart the animation every time it re-enters view
-            el.classList.add("in-view");
-          } else {
-            el.classList.remove("in-view");
+            entry.target.classList.add("in-view");
+            observer.unobserve(entry.target);
           }
         });
       },
-      { threshold: 0.2 }
+      { threshold: 0.12, rootMargin: "0px 0px -30px 0px" }
     );
 
     revealTargets.forEach(el => revealObserver.observe(el));
